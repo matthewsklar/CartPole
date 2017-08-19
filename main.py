@@ -4,10 +4,11 @@ import tensorflow as tf
 
 env = gym.make('CartPole-v0')
 
+
 n_actions = env.action_space.n
-n_observations = env.observation_space.n
+n_states = 4
 
 if __name__ == '__main__':
-    q_matrix = np.zeros([n_observations, n_actions])
+    q_matrix = np.zeros([n_states, n_actions])
 
     print(q_matrix)
