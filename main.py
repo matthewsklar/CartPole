@@ -1,15 +1,13 @@
-import tensorflow as tf
 import gym
+import numpy as np
+import tensorflow as tf
+
+env = gym.make('CartPole-v0')
+
+n_actions = env.action_space.n
+n_observations = env.observation_space.n
 
 if __name__ == '__main__':
-    env = gym.make('CartPole-v0')
+    q_matrix = np.zeros([n_observations, n_actions])
 
-    n_episode = 500
-
-    for i in range(n_episode):
-        state = env.reset()
-
-        done = False
-
-        while not done:
-            env.render()
+    print(q_matrix)
