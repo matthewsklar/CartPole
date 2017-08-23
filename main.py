@@ -1,6 +1,10 @@
 import gym
 import numpy as np
 import tensorflow as tf
+import scipy
+
+from keras.models import Sequential
+from keras.layers import Dense
 
 env = gym.make('CartPole-v0')
 
@@ -12,6 +16,10 @@ run_time = 200
 epsilon = 0.7  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward
 mb_size = 50  # Minibatch size
+
+
+model = Sequential()
+model.add(Dense(20, input_shape=(4,)))
 
 if __name__ == '__main__':
     q_matrix = np.zeros([n_states, n_actions])
