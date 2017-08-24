@@ -20,10 +20,12 @@ gamma = 0.9  # Discounted future reward
 mb_size = 50  # Minibatch size
 
 model = Sequential()
-model.add(Dense(20, input_shape=(4,), kernel_initializer='uniform', activation='relu'))
-model.add(Dense(env.action_space.n, kernel_initializer='uniform', activation='linear'))
 
-model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+model.add(Dense(10, input_shape=(2,) + env.observation_space.shape,
+                kernel_initializer='uniform', activation='sigmoid'))
+model.add(Dense(n_actions, kernel_initializer='uniform', activation='linear'))
+
+model.compile(loss='mse', optimizer='adam')
 
 D = deque()
 
@@ -32,7 +34,7 @@ if __name__ == '__main__':
 
     observation = env.reset()
     obs = np.expand_dims(observation, axis=0)
-    state = np.stack((obs, obs), axis=1)
+    state = np.stack((obs, obs), axis=1)  # Maybe make 4 obs
 
     done = False
 
@@ -42,7 +44,9 @@ if __name__ == '__main__':
         if np.random.rand() <= epsilon:
             action = np.random.randint(0, env.action_space.n, size=1)[0]  # TODO: Test without size
         else:
-            Q = model.predict(obs)  # TODO: Test if obs is correct
+            print(obs.shape, obs)
+            Q = model.predict(state)  # TODO: Test if obs is correct or state
+            print(Q.shape, np.argmax(Q), '\n')
             action = np.argmax(Q)  # https://github.com/llSourcell/deep_q_learning/blob/master/03_PlayingAgent.ipynb
 
         observation_new, reward, done, info = env.step(action)
@@ -50,7 +54,7 @@ if __name__ == '__main__':
 
         state_new = np.append(np.expand_dims(obs_new, axis=0), state[:, :1, :], axis=1)
 
-        D.append((obs, action, reward, obs_new, done))  # TODO: Check if obs should be state
+        D.append((state, action, reward, obs_new, done))  # TODO: Check if obs should be state
 
         state = state_new
 
@@ -70,16 +74,16 @@ if __name__ == '__main__':
         reward = minibatch[i][2]
         state_new = minibatch[i][3]
         done = minibatch[i][4]
-
+        print(inputs.ndim)
         # Build Bellman equation for the Q function
         inputs[i:i+1] = np.expand_dims(state, axis=0)
+        print(inputs.shape)
         targets[i] = model.predict(state)
         Q_sa = model.predict(state_new)
-        print(targets[i], Q_sa)
 
         if done:
             targets[i, action] = reward
         else:
             targets[i, action] = reward + gamma * np.max(Q_sa)
-        print(inputs)
+        print(targets.ndim)
         model.train_on_batch(inputs, targets)
