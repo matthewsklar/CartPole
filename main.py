@@ -2,7 +2,7 @@ import gym
 import numpy as np
 
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Dense, Flatten
 
 from collections import deque
 
@@ -21,11 +21,13 @@ mb_size = 50  # Minibatch size
 
 model = Sequential()
 
-model.add(Dense(10, input_shape=(2,) + env.observation_space.shape,
-                kernel_initializer='uniform', activation='sigmoid'))
+model.add(Dense(20, input_shape=(2,) + env.observation_space.shape,
+                kernel_initializer='uniform', activation='relu'))
+model.add(Flatten())
+model.add(Dense(18, init='uniform', activation='relu'))
 model.add(Dense(n_actions, kernel_initializer='uniform', activation='linear'))
 
-model.compile(loss='mse', optimizer='adam')
+model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
 D = deque()
 
@@ -39,22 +41,17 @@ if __name__ == '__main__':
     done = False
 
     for i in range(run_time):
-        env.render()
-
         if np.random.rand() <= epsilon:
             action = np.random.randint(0, env.action_space.n, size=1)[0]  # TODO: Test without size
         else:
-            print(obs.shape, obs)
-            Q = model.predict(state)  # TODO: Test if obs is correct or state
-            print(Q.shape, np.argmax(Q), '\n')
+            Q = model.predict(state)
             action = np.argmax(Q)  # https://github.com/llSourcell/deep_q_learning/blob/master/03_PlayingAgent.ipynb
 
         observation_new, reward, done, info = env.step(action)
         obs_new = np.expand_dims(observation_new, axis=0)
-
         state_new = np.append(np.expand_dims(obs_new, axis=0), state[:, :1, :], axis=1)
 
-        D.append((state, action, reward, obs_new, done))  # TODO: Check if obs should be state
+        D.append((state, action, reward, state_new, done))  # TODO: Check if obs should be state
 
         state = state_new
 
@@ -74,10 +71,10 @@ if __name__ == '__main__':
         reward = minibatch[i][2]
         state_new = minibatch[i][3]
         done = minibatch[i][4]
-        print(inputs.ndim)
+
         # Build Bellman equation for the Q function
         inputs[i:i+1] = np.expand_dims(state, axis=0)
-        print(inputs.shape)
+
         targets[i] = model.predict(state)
         Q_sa = model.predict(state_new)
 
@@ -85,5 +82,26 @@ if __name__ == '__main__':
             targets[i, action] = reward
         else:
             targets[i, action] = reward + gamma * np.max(Q_sa)
-        print(targets.ndim)
+
         model.train_on_batch(inputs, targets)
+
+    for i in range(200):
+        observation = env.reset()
+        obs = np.expand_dims(observation, axis=0)
+        state = np.stack((obs, obs), axis=1)
+
+        done = False
+        net_reward = 0.0
+
+        while not done:
+            env.render()
+
+            Q = model.predict(state)
+            action = np.argmax(Q)
+
+            observation, reward, done, info = env.step(action)
+            obs = np.expand_dims(observation, axis=0)
+            state = np.append(np.expand_dims(obs, axis=0), state[:, :1, :], axis=1)
+            net_reward += reward
+
+        print('Game ended! Total reward: {}'.format(net_reward))
