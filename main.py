@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import math
 
 from keras.models import Sequential
 from keras.layers import Dense, Flatten
@@ -13,21 +14,23 @@ env = gym.make('CartPole-v0')
 
 # Parameters
 n_actions = env.action_space.n
-n_states = 4
+n_states = env.observation_space.shape
 mb_size = 50
 
 # Neural Network
 # Initialize action-value function Q with random weights
 model = Sequential()
-model.add(Dense(32, input_shape=(2,) + env.observation_space.shape, kernel_initializer='uniform', activation='relu'))
+model.add(Dense(32, input_shape=(2,) + n_states, kernel_initializer='uniform', activation='relu'))
 model.add(Flatten())
 model.add(Dense(18, kernel_initializer='uniform', activation='relu'))
 model.add(Dense(10, kernel_initializer='uniform', activation='relu'))
 model.add(Dense(n_actions, kernel_initializer='uniform', activation='linear'))
 model.compile(optimizer='adam', loss='mse')
 
-epsilon = 0.7  # Probability of choosing a random action
-gamma = 0.9  #
+explore_rate = 0.7  # Probability of choosing a random action
+min_explore_rate = 0.01
+
+gamma = .99  # Discount rate
 
 generations = 5000
 
@@ -36,7 +39,12 @@ D = deque()
 
 max_reward = 0
 best_gen = 0
-all_reward = 0
+last_hun = []
+
+
+def epsilon(t):
+    return max(min_explore_rate, min(explore_rate, 1 - math.log10((t + 1) / 25)))
+
 
 if __name__ == '__main__':
     for i in range(generations):
@@ -50,7 +58,7 @@ if __name__ == '__main__':
         new_reward = 0
         for t in range(500):
             # Select an action
-            if random.random() <= epsilon:  # With probability epsilon select a random action
+            if random.random() <= epsilon(i):  # With probability epsilon select a random action
                 action = random.randint(0, 1)
             else:  # Otherwise select a = argmax(Q(s,a'))
                 Q = model.predict(state)
@@ -126,8 +134,12 @@ if __name__ == '__main__':
             max_reward = tot_reward
             best_gen = i
 
-        all_reward += tot_reward
-        average_reward = all_reward / (i+1)
+        last_hun.append(tot_reward)
+
+        if len(last_hun) > 100:
+            last_hun.pop(0)
+
+        average_reward = sum(last_hun) / len(last_hun)
 
         print('Generation {}; Reward: {}; Max Reward: {} on gen {}; Avg Reward: {}'.format(
             i, tot_reward, max_reward, best_gen, average_reward))
