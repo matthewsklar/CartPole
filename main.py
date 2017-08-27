@@ -48,7 +48,6 @@ if __name__ == '__main__':
         done = False
 
         new_reward = 0
-
         for t in range(500):
             # Select an action
             if random.random() <= epsilon:  # With probability epsilon select a random action
@@ -71,8 +70,6 @@ if __name__ == '__main__':
                 env.reset()
                 obs = np.expand_dims(observation, axis=0)
                 state = np.stack((obs, obs), axis=1)
-
-        env.reset()
 
         # Sample random transitions <ss, aa, rr, ss'> from replay memory D
         mb_size = 50
