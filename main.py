@@ -17,7 +17,7 @@ n_actions = env.action_space.n
 n_states = env.observation_space.shape
 mb_size = 50
 
-# Neural Network
+# Neural Networkq
 # Initialize action-value function Q with random weights
 model = Sequential()
 model.add(Dense(32, input_shape=(2,) + n_states, kernel_initializer='uniform', activation='relu'))
