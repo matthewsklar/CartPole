@@ -12,6 +12,13 @@ from collections import deque
 
 class DQNAgent:
     def __init__(self, learning_rate=0.001, gamma=0.95):
+        """
+        Initialize DQNAgent
+
+        Args:
+            learning_rate: A float representing the learning rate for the network
+            gamma: A float representing the discount factor for Bellman's Function
+        """
         # The amount of states in the environment
         self.n_states = env.observation_space.shape
 

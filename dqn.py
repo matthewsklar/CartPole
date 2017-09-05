@@ -1,3 +1,4 @@
+# TODO: Adjust hyperparameters
 import gym
 import random
 
@@ -8,13 +9,19 @@ from collections import deque
 
 
 class Model:
-    def create_model(self, n_states, n_actions, input, targets, learning_rate):
+    @staticmethod
+    def create_model(n_states, n_actions, input, targets, learning_rate):
         """
         Build a neural network with specified amount of dense layers with specified inputs and outputs.
         The input and hidden layers use the relu activation function and the output layer uses a linear activation
         function.
 
-        :return:
+        Args:
+            n_states: A tuple holding data about the amount of states in the environment.
+            n_actions: An integer representing the amount of actions the agent can apply to the environment.
+            input: A tensor holding a placeholder for the networks input.
+            targets: A tensor holding a placeholder for the networks expected output.
+            learning_rate: A float representing the learning rate (how much new information overrides old information).
         """
         n_nodes_hl1 = 24
         n_nodes_hl2 = 24
@@ -41,8 +48,6 @@ class Model:
         layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
         output = calculate_layer(layer, output_layer)
 
-        q_vals = tf.reduce_sum(tf.matmul(output, targets), 1)
-
         loss = tf.losses.mean_squared_error(output, targets)
         optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
@@ -60,9 +65,9 @@ class DQNAgent:
         memory: A collections.deque object that stores in memory (state, action, reward, new_state, done).
         learning_rate: A float representing the learning rate (how much new information overrides old information).
         gamma: A float representing the discount factor (the importance of estimated future rewards).
-        epsilon: A float with the starting chance of the agent picking a random action (exploration over exploitation).
-        epsilon_min: A float with the minimum epsilon value.
-        epsilon_decay: A float with the amount that the epsilon value decreases every iteration if above epsilon_min.
+        epsilon: A float storing the chance of the agent picking a random action (exploration over exploitation).
+        epsilon_min: A float containing the minimum epsilon value.
+        epsilon_decay: A float with the amount that epsilon decreases every iteration if above minimum epsilon.
         input: A tensor holding a placeholder for the networks input.
         targets: A tensor holding a placeholder for the networks expected output.
         neural_network: A tuple holding information about the neural network (model, loss, optimizer).
@@ -71,25 +76,28 @@ class DQNAgent:
         optimizer: A TensorFlow operation that trains the model.
     """
 
-    def __init__(self, learning_rate=0.001, gamma=0.95):
+    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
         """Initialize DQNAgent.
 
         Args:
             learning_rate: A float representing the learning rate for the network.
             gamma: A float representing the discount factor for Bellman's Function.
+            epsilon: A float storing the chance of the agent picking a random action (exploration over exploitation).
+            epsilon_min: A float containing the minimum epsilon value.
+            epsilon_decay: A float with the amount that epsilon decreases every iteration if above minimum epsilon.
         """
         self.n_states = env.observation_space.shape
         self.n_actions = env.action_space.n
         self.memory = deque(maxlen=2000)
         self.learning_rate = learning_rate
         self.gamma = gamma
-        self.epsilon = 1.0
-        self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon = epsilon
+        self.epsilon_min = epsilon_min
+        self.epsilon_decay = epsilon_decay
         self.input = tf.placeholder(tf.float32, [None, self.n_states[0]])
         self.targets = tf.placeholder(tf.float32, [None, self.n_actions])
-        self.neural_network = Model().create_model(self.n_states, self.n_actions, self.input, self.targets,
-                                                   self.learning_rate)
+        self.neural_network = Model.create_model(self.n_states, self.n_actions, self.input, self.targets,
+                                                 self.learning_rate)
         self.model = self.neural_network[0]
         self.loss = self.neural_network[1]
         self.optimizer = self.neural_network[2]
@@ -97,7 +105,7 @@ class DQNAgent:
         print('State Shape: %d\tAction Shape: %d' % (self.n_states[0], self.n_actions))
 
     def remember(self, r_state, r_action, r_reward, r_new_state, r_done):
-        """Stores the memory.
+        """Adds data to memory.
 
         Memory contains (state, action, reward, new_state, done).
 
@@ -111,7 +119,7 @@ class DQNAgent:
         self.memory.append((r_state, r_action, r_reward, r_new_state, r_done))
 
     def act(self, a_state):
-        """Selects the next actions.
+        """Selects the next action.
 
         Determine which action the agent should send to the environment based on the state. There is an epsilon chance
         that it explores by selecting a random action.
@@ -121,6 +129,9 @@ class DQNAgent:
 
         Returns:
             An integer of either 0 or 1.
+
+        Raises:
+            ValueError: If a_state's shape cannot be fed into input Tensor's shape.
         """
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.n_actions)
@@ -137,6 +148,8 @@ class DQNAgent:
         TensorFlow do it's magic. Train the network the specified amount of times. After, reduce the epsilon value if it
         is greater than the minimum epsilon value to reduce exploration and increase exploitation.
 
+        The Bellman Equation: Q(s, a) = reward + gamma * max(Q(s', a'))
+
         Args:
             batch_size: The number of samples to get from memory and propagate through the network to train it.
         """
@@ -146,7 +159,7 @@ class DQNAgent:
             target = mb_reward
 
             if not mb_done:
-                # Bellman's Function
+                # The Bellman Equations
                 target = mb_reward + self.gamma * np.amax(sess.run(self.model, feed_dict={self.input: mb_state_new}))
 
             q = sess.run(self.model, feed_dict={self.input: mb_state})
@@ -186,4 +199,4 @@ if __name__ == '__main__':
                     print('Episode {}, reward: {}, epsilon {}'.format(e, t, agent.epsilon))
                     break
 
-            agent.replay(np.amin((len(agent.memory), 50)))  # TODO: Increase
+            agent.replay(np.amin((len(agent.memory), 50)))
