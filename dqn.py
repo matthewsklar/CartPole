@@ -7,8 +7,57 @@ import numpy as np
 from collections import deque
 
 
+class Model:
+    def create_model(self, n_states, n_actions, input, targets, learning_rate):
+        """
+        Build a neural network with specified amount of dense layers with specified inputs and outputs.
+        The input and hidden layers use the relu activation function and the output layer uses a linear activation
+        function.
+
+        :return:
+        """
+        n_nodes_hl1 = 24
+        n_nodes_hl2 = 24
+
+        # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
+        hidden_layer_1 = {
+            'weights': tf.Variable(tf.random_normal([n_states[0], n_nodes_hl1])),
+            'biases': tf.Variable(tf.random_normal([n_nodes_hl1]))
+        }
+
+        hidden_layer_2 = {
+            'weights': tf.Variable(tf.random_normal([n_nodes_hl1, n_nodes_hl2])),
+            'biases': tf.Variable(tf.random_normal([n_nodes_hl2]))
+        }
+
+        output_layer = {
+            'weights': tf.Variable(tf.random_normal([n_nodes_hl2, n_actions])),
+            'biases': tf.Variable(tf.random_normal([n_actions]))
+        }
+
+        calculate_layer = lambda i, l: tf.add(tf.matmul(i, l['weights']), l['biases'])
+
+        layer = tf.nn.relu(calculate_layer(input, hidden_layer_1))
+        layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
+        output = calculate_layer(layer, output_layer)
+
+        q_vals = tf.reduce_sum(tf.matmul(output, targets), 1)
+
+        loss = tf.losses.mean_squared_error(output, targets)
+        optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+
+        return output, loss, optimizer
+
+
 class DQNAgent:
     def __init__(self, learning_rate=0.001, gamma=0.95):
+        """
+        Initialize DQNAgent
+
+        Args:
+            learning_rate: A float representing the learning rate for the network
+            gamma: A float representing the discount factor for Bellman's Function
+        """
         # The amount of states in the environment
         self.n_states = env.observation_space.shape
 
@@ -36,7 +85,8 @@ class DQNAgent:
         self.targets = tf.placeholder(tf.float32, [None, self.n_actions])
 
         # Information about the neural network (model, loss, optimizer)
-        self.neural_network = self.create_neural_network()
+        self.neural_network = Model().create_model(self.n_states, self.n_actions, self.input, self.targets,
+                                                   self.learning_rate)
 
         # Model of neural network
         self.model = self.neural_network[0]
@@ -48,46 +98,6 @@ class DQNAgent:
         self.optimizer = self.neural_network[2]
 
         print('State Shape: %d\tAction Shape: %d' % (self.n_states[0], self.n_actions))
-
-    def create_neural_network(self):
-        """
-        Build a neural network with specified amount of dense layers with specified inputs and outputs.
-        The input and hidden layers use the relu activation function and the output layer uses a linear activation
-        function.
-
-        :return:
-        """
-        n_nodes_hl1 = 24
-        n_nodes_hl2 = 24
-
-        # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
-        hidden_layer_1 = {
-            'weights': tf.Variable(tf.random_normal([self.n_states[0], n_nodes_hl1])),
-            'biases': tf.Variable(tf.random_normal([n_nodes_hl1]))
-        }
-
-        hidden_layer_2 = {
-            'weights': tf.Variable(tf.random_normal([n_nodes_hl1, n_nodes_hl2])),
-            'biases': tf.Variable(tf.random_normal([n_nodes_hl2]))
-        }
-
-        output_layer = {
-            'weights': tf.Variable(tf.random_normal([n_nodes_hl2, self.n_actions])),
-            'biases': tf.Variable(tf.random_normal([self.n_actions]))
-        }
-
-        calculate_layer = lambda i, l: tf.add(tf.matmul(i, l['weights']), l['biases'])
-
-        layer = tf.nn.relu(calculate_layer(self.input, hidden_layer_1))
-        layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
-        output = calculate_layer(layer, output_layer)
-
-        q_vals = tf.reduce_sum(tf.matmul(output, self.targets), 1)
-
-        loss = tf.losses.mean_squared_error(output, self.targets)
-        optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(loss)
-
-        return output, loss, optimizer
 
     def remember(self, r_state, r_action, r_reward, r_new_state, r_done):
         """
@@ -126,10 +136,9 @@ class DQNAgent:
             target = mb_reward
 
             if not mb_done:
-                # print(sess.run(self.model, feed_dict={self.input: mb_state_new}))
                 # Bellman's Function
-                target = mb_reward + self.gamma * np.argmax(sess.run(self.model, feed_dict={self.input: mb_state_new}))
-                # print(target)
+                target = mb_reward + self.gamma * np.amax(sess.run(self.model, feed_dict={self.input: mb_state_new}))
+
             q = sess.run(self.model, feed_dict={self.input: mb_state})
             q[0][mb_action] = target
 
@@ -146,19 +155,18 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        for e in range(3000):
+        for e in range(500):
             # The initial observed state of the environment
-            observation = env.reset()
-            # state = np.expand_dims(observation, axis=0)
-            state = np.reshape(observation, [1, 4])
+            state = env.reset()
+            state = np.expand_dims(state, axis=0)
 
             for t in range(500):
                 # env.render()
 
                 action = agent.act(state)
 
-                observation_new, reward, done, _ = env.step(action)
-                state_new = np.reshape(observation_new, [1, 4])
+                state_new, reward, done, _ = env.step(action)
+                state_new = np.expand_dims(state_new, axis=0)
 
                 agent.remember(state, action, reward, state_new, done)
 
