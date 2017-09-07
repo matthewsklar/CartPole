@@ -24,12 +24,12 @@ class Model:
             targets: A tensor holding a placeholder for the networks expected output.
             learning_rate: A float representing the learning rate (how much new information overrides old information).
         """
-        n_nodes_hl1 = 24
-        n_nodes_hl2 = 24
+        n_nodes_hl1 = 100
+        n_nodes_hl2 = 100
 
         # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
         print(input.shape)
-        # input = tf.reshape(input, [1, 8])  # com
+        input = tf.reshape(input, [1, 8])  # com
         print(input.shape)
 
         hidden_layer_1 = {
@@ -50,7 +50,7 @@ class Model:
         calculate_layer = lambda i, l: tf.add(tf.matmul(i, l['weights']), l['biases'])
 
         layer = tf.nn.relu(calculate_layer(input, hidden_layer_1))
-        layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
+        #layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
         output = calculate_layer(layer, output_layer)
 
         loss = tf.losses.mean_squared_error(output, targets)
@@ -81,7 +81,7 @@ class DQNAgent:
         optimizer: A TensorFlow operation that trains the model.
     """
 
-    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0, epsilon_decay=0.995):
+    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0.0, epsilon_decay=0.995):
         """Initialize DQNAgent.
 
         Args:
@@ -172,23 +172,24 @@ class DQNAgent:
 
             _, loss = sess.run([self.loss, self.optimizer], feed_dict={self.input: mb_state, self.targets: q})
 
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
+        self.epsilon *= self.epsilon_decay
+        self.epsilon = max(self.epsilon, self.epsilon_min)
 
 
 if __name__ == '__main__':
     env = gym.make('CartPole-v0')
 
-    agent = DQNAgent(epsilon_decay=0.98)
+    agent = DQNAgent(epsilon_min=0.01, epsilon_decay=0.98, gamma=1.0)
 
     reward_list = []
     hundred_reward_sum = []
     hundred_reward_sum_list = []
+    solved = 0
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        for e in range(500):
+        for e in range(1000):
             # The initial observed state of the environment
             state = env.reset()
             state = np.expand_dims(state, axis=0)
@@ -202,9 +203,9 @@ if __name__ == '__main__':
 
                 state_new, reward, done, _ = env.step(action)
                 state_new = np.expand_dims(state_new, axis=0)
-                # state_del = np.delete(state, 0, axis=0)  # Com
+                state_del = np.delete(state, 0, axis=0)  # Com
                 # print(state)
-                # state_new = np.append(state_del, state_new, axis=0)  # Com
+                state_new = np.append(state_del, state_new, axis=0)  # Com
 
                 agent.remember(state, action, reward, state_new, done)
 
@@ -220,15 +221,18 @@ if __name__ == '__main__':
 
                     hundred_reward_sum_list.append(avg)
 
+                    if avg >= 195 and solved == 0:
+                        solved = e
+
                     if len(hundred_reward_sum) > 100:
                         hundred_reward_sum.pop(0)
 
-                    print('Episode {}, reward: {}, epsilon {}, avg {}'.format(
-                        e + 1, reward_t, agent.epsilon, avg))
+                    print('Episode {}, reward: {}, epsilon {}, avg {}, solved {}'.format(
+                        e + 1, reward_t, agent.epsilon, avg, solved))
 
                     break
 
-            agent.replay(np.amin((len(agent.memory), 50)))
+            agent.replay(np.amin((len(agent.memory), 100)))
 
     plt.subplot(211)
     plt.plot(reward_list)
