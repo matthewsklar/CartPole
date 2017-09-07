@@ -27,8 +27,12 @@ class Model:
         n_nodes_hl2 = 24
 
         # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
+        print(input.shape)
+        # input = tf.reshape(input, [1, 8])  # com
+        print(input.shape)
+
         hidden_layer_1 = {
-            'weights': tf.Variable(tf.random_normal([n_states[0], n_nodes_hl1])),
+            'weights': tf.Variable(tf.random_normal([int(input.shape[1]), n_nodes_hl1])),
             'biases': tf.Variable(tf.random_normal([n_nodes_hl1]))
         }
 
@@ -76,7 +80,7 @@ class DQNAgent:
         optimizer: A TensorFlow operation that trains the model.
     """
 
-    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0.01, epsilon_decay=0.995):
+    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0, epsilon_decay=0.995):
         """Initialize DQNAgent.
 
         Args:
@@ -118,7 +122,7 @@ class DQNAgent:
         """
         self.memory.append((r_state, r_action, r_reward, r_new_state, r_done))
 
-    def act(self, a_state):
+    def act(self, a_state, action_space):
         """Selects the next action.
 
         Determine which action the agent should send to the environment based on the state. There is an epsilon chance
@@ -134,7 +138,7 @@ class DQNAgent:
             ValueError: If a_state's shape cannot be fed into input Tensor's shape.
         """
         if np.random.rand() <= self.epsilon:
-            return random.randrange(self.n_actions)
+            return action_space.sample()
         else:
             action_values = sess.run(self.model, feed_dict={self.input: a_state})
 
@@ -170,33 +174,50 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
+
 if __name__ == '__main__':
     env = gym.make('CartPole-v0')
 
-    agent = DQNAgent()
+    agent = DQNAgent(epsilon_decay=0.98)
+
+    hundred_reward_sum = []
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        for e in range(500):
+        for e in range(5000):
             # The initial observed state of the environment
             state = env.reset()
             state = np.expand_dims(state, axis=0)
+            state = np.squeeze(np.stack((state, state), axis=1))  # Com
+            reward_t = 0
 
             for t in range(500):
                 # env.render()
 
-                action = agent.act(state)
+                action = agent.act(state, env.action_space)
 
                 state_new, reward, done, _ = env.step(action)
                 state_new = np.expand_dims(state_new, axis=0)
+                # state_del = np.delete(state, 0, axis=0)  # Com
+                # print(state)
+                # state_new = np.append(state_del, state_new, axis=0)  # Com
 
                 agent.remember(state, action, reward, state_new, done)
+
+                reward_t += reward
 
                 state = state_new
 
                 if done:
-                    print('Episode {}, reward: {}, epsilon {}'.format(e, t, agent.epsilon))
+                    hundred_reward_sum.append(reward_t)
+
+                    if len(hundred_reward_sum) > 100:
+                        hundred_reward_sum.pop(0)
+
+                    print('Episode {}, reward: {}, epsilon {}, avg {}'.format(
+                        e + 1, reward_t, agent.epsilon, sum(hundred_reward_sum) / (len(hundred_reward_sum))))
+
                     break
 
             agent.replay(np.amin((len(agent.memory), 50)))
