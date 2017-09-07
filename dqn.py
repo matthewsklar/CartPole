@@ -4,6 +4,7 @@ import random
 
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 from collections import deque
 
@@ -180,19 +181,21 @@ if __name__ == '__main__':
 
     agent = DQNAgent(epsilon_decay=0.98)
 
+    reward_list = []
     hundred_reward_sum = []
+    hundred_reward_sum_list = []
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        for e in range(5000):
+        for e in range(500):
             # The initial observed state of the environment
             state = env.reset()
             state = np.expand_dims(state, axis=0)
             state = np.squeeze(np.stack((state, state), axis=1))  # Com
             reward_t = 0
 
-            for t in range(500):
+            for t in range(200):
                 # env.render()
 
                 action = agent.act(state, env.action_space)
@@ -210,14 +213,33 @@ if __name__ == '__main__':
                 state = state_new
 
                 if done:
+                    reward_list.append(reward_t)
                     hundred_reward_sum.append(reward_t)
+
+                    avg = sum(hundred_reward_sum) / (len(hundred_reward_sum))
+
+                    hundred_reward_sum_list.append(avg)
 
                     if len(hundred_reward_sum) > 100:
                         hundred_reward_sum.pop(0)
 
                     print('Episode {}, reward: {}, epsilon {}, avg {}'.format(
-                        e + 1, reward_t, agent.epsilon, sum(hundred_reward_sum) / (len(hundred_reward_sum))))
+                        e + 1, reward_t, agent.epsilon, avg))
 
                     break
 
             agent.replay(np.amin((len(agent.memory), 50)))
+
+    plt.subplot(211)
+    plt.plot(reward_list)
+    plt.title('Total Reward vs Episode')
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+
+    plt.subplot(212)
+    plt.plot(hundred_reward_sum_list)
+    plt.title('Last 100 Avg Reward vs Episode')
+    plt.xlabel('Episode')
+    plt.ylabel('Avg Reward')
+
+    plt.show()
