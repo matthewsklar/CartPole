@@ -1,6 +1,6 @@
-# TODO: Adjust hyperparameters
 import gym
 import random
+import deepqn.params as param
 
 import tensorflow as tf
 import numpy as np
@@ -11,7 +11,7 @@ from collections import deque
 
 class Model:
     @staticmethod
-    def create_model(n_states, n_actions, input, targets, learning_rate):
+    def create_model(n_actions, input, targets, learning_rate):
         """
         Build a neural network with specified amount of dense layers with specified inputs and outputs.
         The input and hidden layers use the relu activation function and the output layer uses a linear activation
@@ -29,7 +29,7 @@ class Model:
 
         # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
         print(input.shape)
-        input = tf.reshape(input, [1, 8])  # com
+        # input = tf.reshape(input, [1, 8])  # com
         print(input.shape)
 
         hidden_layer_1 = {
@@ -43,14 +43,14 @@ class Model:
         }
 
         output_layer = {
-            'weights': tf.Variable(tf.random_normal([n_nodes_hl2, n_actions])),
+            'weights': tf.Variable(tf.random_normal([n_nodes_hl2, n_actions])),  # Beware the first num
             'biases': tf.Variable(tf.random_normal([n_actions]))
         }
 
         calculate_layer = lambda i, l: tf.add(tf.matmul(i, l['weights']), l['biases'])
 
         layer = tf.nn.relu(calculate_layer(input, hidden_layer_1))
-        #layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
+        # layer = tf.nn.relu(calculate_layer(layer, hidden_layer_2))
         output = calculate_layer(layer, output_layer)
 
         loss = tf.losses.mean_squared_error(output, targets)
@@ -81,28 +81,20 @@ class DQNAgent:
         optimizer: A TensorFlow operation that trains the model.
     """
 
-    def __init__(self, learning_rate=0.001, gamma=0.95, epsilon=1.0, epsilon_min=0.0, epsilon_decay=0.995):
+    def __init__(self):
         """Initialize DQNAgent.
-
-        Args:
-            learning_rate: A float representing the learning rate for the network.
-            gamma: A float representing the discount factor for Bellman's Function.
-            epsilon: A float storing the chance of the agent picking a random action (exploration over exploitation).
-            epsilon_min: A float containing the minimum epsilon value.
-            epsilon_decay: A float with the amount that epsilon decreases every iteration if above minimum epsilon.
         """
         self.n_states = env.observation_space.shape
         self.n_actions = env.action_space.n
-        self.memory = deque(maxlen=2000)
-        self.learning_rate = learning_rate
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.epsilon_min = epsilon_min
-        self.epsilon_decay = epsilon_decay
+        self.memory = deque(maxlen=param.MEMORY_CAPACITY)
+        self.learning_rate = param.LEARNING_RATE
+        self.gamma = param.GAMMA
+        self.epsilon = param.EPSILON
+        self.epsilon_min = param.EPSILON_MIN
+        self.epsilon_decay = param.EPSILON_DECAY
         self.input = tf.placeholder(tf.float32, [None, self.n_states[0]])
         self.targets = tf.placeholder(tf.float32, [None, self.n_actions])
-        self.neural_network = Model.create_model(self.n_states, self.n_actions, self.input, self.targets,
-                                                 self.learning_rate)
+        self.neural_network = Model.create_model(self.n_actions, self.input, self.targets, self.learning_rate)
         self.model = self.neural_network[0]
         self.loss = self.neural_network[1]
         self.optimizer = self.neural_network[2]
@@ -131,6 +123,7 @@ class DQNAgent:
 
         Args:
             a_state: A numpy array representing the state of the environment.
+            action_space: A discrete space containing the possible action the agent can give to the environment.
 
         Returns:
             An integer of either 0 or 1.
@@ -179,7 +172,7 @@ class DQNAgent:
 if __name__ == '__main__':
     env = gym.make('CartPole-v0')
 
-    agent = DQNAgent(epsilon_min=0.01, epsilon_decay=0.98, gamma=1.0)
+    agent = DQNAgent()
 
     reward_list = []
     hundred_reward_sum = []
@@ -203,9 +196,9 @@ if __name__ == '__main__':
 
                 state_new, reward, done, _ = env.step(action)
                 state_new = np.expand_dims(state_new, axis=0)
-                state_del = np.delete(state, 0, axis=0)  # Com
+                # state_del = np.delete(state, 0, axis=0)  # Com
                 # print(state)
-                state_new = np.append(state_del, state_new, axis=0)  # Com
+                # state_new = np.append(state_del, state_new, axis=0)  # Com
 
                 agent.remember(state, action, reward, state_new, done)
 
@@ -232,7 +225,7 @@ if __name__ == '__main__':
 
                     break
 
-            agent.replay(np.amin((len(agent.memory), 100)))
+            agent.replay(np.amin((len(agent.memory), param.BATCH_SIZE)))
 
     plt.subplot(211)
     plt.plot(reward_list)
