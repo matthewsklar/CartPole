@@ -5,7 +5,7 @@ ENVIRONMENT = 'CartPole-v0'
 EPISODES = 1000
 
 # The maximum amount of time each instance of the environment can run
-STEPS = 500
+STEPS = 200
 
 # The maximum amount of steps of data to store
 MEMORY_CAPACITY = 2000
