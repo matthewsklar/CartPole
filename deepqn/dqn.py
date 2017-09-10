@@ -1,3 +1,4 @@
+# TODO: Test double DQN
 import gym
 import random
 import deepqn.params as param
@@ -27,7 +28,6 @@ class Model:
         n_nodes_hl1 = 100
         n_nodes_hl2 = 100
 
-        # TODO: Maybe flatten to prevent bias from having 2 rows (2, 4) -> (1, 8)
         print(input.shape)
         # input = tf.reshape(input, [1, 8])  # com
         print(input.shape)
