@@ -13,13 +13,13 @@ from collections import deque
 class Model:
     @staticmethod
     def create_model(n_actions, input, targets, learning_rate):
-        """
+        """Build a neural network
+
         Build a neural network with specified amount of dense layers with specified inputs and outputs.
         The input and hidden layers use the relu activation function and the output layer uses a linear activation
         function.
 
         Args:
-            n_states: A tuple holding data about the amount of states in the environment.
             n_actions: An integer representing the amount of actions the agent can apply to the environment.
             input: A tensor holding a placeholder for the networks input.
             targets: A tensor holding a placeholder for the networks expected output.
