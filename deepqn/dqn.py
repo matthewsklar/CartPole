@@ -116,7 +116,7 @@ class DQNAgent:
         self.memory.append((r_state, r_action, r_reward, r_new_state, r_done))
 
     def act(self, a_state, action_space):
-        """Selects the next action.
+        """Select the next action.
 
         Determine which action the agent should send to the environment based on the state. There is an epsilon chance
         that it explores by selecting a random action.
